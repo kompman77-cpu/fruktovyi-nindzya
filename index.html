@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!--
+MIT License
+
+Copyright (c) 2025 Fruit Ninja Web Contributors
+Original game: aa-ayushadhikari (https://github.com/aa-ayushadhikari/fruitninja), MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Russian localization, mobile fullscreen fallback and touch-friendly layer
+added for Roll-Express (2026). MIT, same terms.
+-->
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a3a1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Фруктовый ниндзя</title>
+  <!-- Modern game UI font -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+
+  <style>
+    /* ===== Mobile hardening (does not affect desktop look) ===== */
+    html, body {
+      height: 100%;
+      overscroll-behavior: none; /* no pull-to-refresh */
+    }
+    canvas {
+      touch-action: none; /* swipes slice fruit, never scroll or zoom */
+    }
+    button, input[type="range"] {
+      touch-action: manipulation; /* no 300ms delay, no double-tap zoom on UI */
+    }
+
+    /* Center the main menu on narrow (portrait phone) screens */
+    @media (max-width: 700px) {
+      #mainMenu { justify-content: center; padding-left: 0; }
+      .menuTitle { text-align: center; }
+    }
+
+    /* iOS fallback fullscreen: canvas covers the whole viewport */
+    html.fs-fallback #gameCanvas {
+      position: fixed !important;
+      top: 0; left: 0;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 0;
+    }
+    /* Exit button for the iOS fallback mode */
+    #fsExit {
+      display: none;
+      position: fixed;
+      top: calc(10px + env(safe-area-inset-top, 0px));
+      right: calc(10px + env(safe-area-inset-right, 0px));
+      z-index: 5000;
+      align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 18px; font-weight: bold;
+      -webkit-user-select: none; user-select: none;
+    }
+    html.fs-fallback #fsExit { display: flex; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="score">Счёт: 0</div>
+  <div id="fsExit" title="Выйти из полного экрана">✕</div>
+
+  <!-- Fullscreen Gate Overlay -->
+  <div id="fullscreenGate">
+    <div class="fsGatePanel">
+      <div class="fsGateTitle">Откройте игру на весь экран</div>
+      <div class="fsGateHint">Удерживайте Esc около 2 секунд, чтобы выйти из полного экрана</div>
+      <button id="enterFullscreenBtn" class="menuButton">На весь экран</button>
+    </div>
+  </div>
+
+  <!-- Main Menu -->
+  <div id="mainMenu" style="display: none;">
+    <div class="menuPanel">
+      <h1 class="menuTitle">Фруктовый ниндзя</h1>
+      <button id="newGameBtn" class="menuButton">Начать игру</button>
+      <button id="settingsBtn" class="menuButton">Настройки</button>
+      <button id="highScoresBtn" class="menuButton">Рекорды</button>
+    </div>
+  </div>
+
+  <!-- Settings Menu -->
+  <div id="settingsMenu" style="display: none;">
+    <div class="menuPanel">
+      <h2 class="menuTitle">Настройки</h2>
+      <div class="setting">
+        <label for="musicVolume">Громкость музыки</label>
+        <input type="range" id="musicVolume" min="0" max="1" step="0.1" value="1">
+      </div>
+      <div class="setting">
+        <label for="sfxVolume">Громкость звуков</label>
+        <input type="range" id="sfxVolume" min="0" max="1" step="0.1" value="1">
+      </div>
+      <button id="backBtn" class="menuButton">Назад</button>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="gameOver">
+    <div class="gameOverPanel">
+      <div class="gameOverTitle">ИГРА ОКОНЧЕНА</div>
+      <div class="gameOverSubtext">Коснитесь экрана, чтобы играть снова</div>
+    </div>
+  </div>
+
+  <!-- READY SCREEN OVERLAY -->
+  <div id="readyScreen">
+    <div id="readyText">Приготовьтесь?</div>
+    <div id="readyApple">🍎</div>
+    <div id="readySubtext">Коснитесь яблока, чтобы начать</div>
+  </div>
+
+  <!-- Component Scripts - Order matters for dependencies -->
+  <script src="scripts/core/Constants.js"></script>
+  <script src="scripts/core/GameState.js"></script>
+  <script src="scripts/audio/AudioManager.js"></script>
+  <script src="scripts/utils/GeometryUtils.js"></script>
+  <script src="scripts/rendering/EmojiCache.js"></script>
+  <script src="scripts/entities/GameObject.js"></script>
+  <script src="scripts/entities/Fruit.js"></script>
+  <script src="scripts/entities/FruitSlice.js"></script>
+  <script src="scripts/entities/Particle.js"></script>
+  <script src="scripts/entities/ComboSplash.js"></script>
+  <script src="scripts/effects/EffectsManager.js"></script>
+  <script src="scripts/input/InputManager.js"></script>
+  <script src="scripts/rendering/Renderer.js"></script>
+  <script src="scripts/spawning/SpawnManager.js"></script>
+  <script src="scripts/collision/CollisionDetector.js"></script>
+  <script src="scripts/ui/UIManager.js"></script>
+  <script src="scripts/core/GameEngine.js"></script>
+  <script src="scripts/main.js"></script>
+
+  <script>
+    // ===== Mobile fullscreen layer (touch devices only) =====
+    (function () {
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (!isTouch) return;
+
+      const root = document.documentElement;
+      const gate = document.getElementById('fullscreenGate');
+      const fsBtn = document.getElementById('enterFullscreenBtn');
+
+      // On touch devices the Esc-hint is meaningless — explain the real exits
+      const hint = document.querySelector('.fsGateHint');
+      if (hint) {
+        hint.textContent = 'Игра откроется на весь экран. Выход: кнопка «Назад» (Android) или крестик в углу (iPhone).';
+      }
+
+      const canNativeFs = !!(root.requestFullscreen || root.webkitRequestFullscreen ||
+                             root.mozRequestFullScreen || root.msRequestFullscreen);
+
+      function enterNativeFs() {
+        if (document.fullscreenElement || document.webkitFullscreenElement) return;
+        const req = root.requestFullscreen || root.webkitRequestFullscreen ||
+                    root.mozRequestFullScreen || root.msRequestFullscreen;
+        if (req) {
+          const p = req.call(root);
+          if (p && p.catch) p.catch(function () {});
+        }
+      }
+
+      // Runs after the game's own click handler (both fire on the same tap).
+      // On Android the game/UI usually requests native fullscreen itself;
+      // requesting again is harmless (idempotent). On iPhone there is no
+      // element-fullscreen API, so we fall back to CSS fullscreen.
+      fsBtn.addEventListener('click', function () {
+        if (canNativeFs) {
+          enterNativeFs();
+        } else {
+          root.classList.add('fs-fallback');
+          if (gate) gate.style.display = 'none';
+        }
+      });
+
+      // iOS fallback exit button
+      const fsExit = document.getElementById('fsExit');
+      fsExit.addEventListener('touchstart', function (e) {
+        e.preventDefault();
+        root.classList.remove('fs-fallback');
+      }, { passive: false });
+      fsExit.addEventListener('click', function () {
+        root.classList.remove('fs-fallback');
+      });
+
+      // Extra zoom guards (safe: they only block browser gestures, not game input)
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    })();
+  </script>
+</body>
+</html>

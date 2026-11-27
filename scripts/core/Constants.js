@@ -8,6 +8,13 @@ const GameConstants = {
   // Physics Constants
   GRAVITY: 1000,                    // Gravity force affecting all game objects
   CANVAS_OVERFLOW_THRESHOLD: 100,   // Distance beyond canvas before objects are removed
+
+  // Logical Game Space
+  // The canvas ALWAYS works in this logical coordinate space (height in px).
+  // Physics, spawning and collision are tuned for this height. On small
+  // screens (phones) the canvas is scaled up by CSS to fill the viewport,
+  // so all game logic keeps desktop-like coordinates.
+  LOGICAL_HEIGHT: 720,
   
   // Timing Constants
   INITIAL_SPAWN_INTERVAL: 1000,     // Initial time between fruit spawns (ms)
@@ -83,3 +90,4 @@ const GameConstants = {
     SWIPE_TRAIL: "rgba(0,255,255,{alpha})"
   }
 };
+

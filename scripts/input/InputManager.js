@@ -52,13 +52,14 @@ class InputManager {
    * @param {MouseEvent} event - Mouse event object
    */
   handleStart(event) {
+    const p = this.toGame(event.clientX, event.clientY);
     // Clear existing swipe points and start new swipe
     gameState.swipePoints.length = 0;
-    this.addSwipePoint(event.clientX, event.clientY);
+    this.addSwipePoint(p.x, p.y);
     gameState.isSwiping = true;
     this.isInputActive = true;
     
-    this.lastInputPosition = { x: event.clientX, y: event.clientY };
+    this.lastInputPosition = { x: p.x, y: p.y };
   }
 
   /**
@@ -68,12 +69,13 @@ class InputManager {
   handleMove(event) {
     if (!gameState.isSwiping) return;
     
-    this.addSwipePoint(event.clientX, event.clientY);
+    const p = this.toGame(event.clientX, event.clientY);
+    this.addSwipePoint(p.x, p.y);
     
     // Play swipe sound with cooldown
     audioManager.playSwipeSound();
     
-    this.lastInputPosition = { x: event.clientX, y: event.clientY };
+    this.lastInputPosition = { x: p.x, y: p.y };
   }
 
   /**
@@ -171,17 +173,32 @@ class InputManager {
   }
 
   /**
+   * Converts screen (client) coordinates to LOGICAL game coordinates.
+   * The canvas element is stretched by CSS, so its on-screen size can
+   * differ from its internal (logical) resolution. This method scales
+   * client coordinates accordingly, so swipes always hit the fruits.
+   * @param {number} screenX - Client X coordinate
+   * @param {number} screenY - Client Y coordinate
+   * @returns {Object} Logical game coordinates {x, y}
+   */
+  toGame(screenX, screenY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const scaleX = this.canvas.width / rect.width;
+    const scaleY = this.canvas.height / rect.height;
+    return {
+      x: (screenX - rect.left) * scaleX,
+      y: (screenY - rect.top) * scaleY
+    };
+  }
+
+  /**
    * Converts screen coordinates to canvas coordinates
    * @param {number} screenX - Screen X coordinate
    * @param {number} screenY - Screen Y coordinate
    * @returns {Object} Canvas coordinates {x, y}
    */
   screenToCanvas(screenX, screenY) {
-    const rect = this.canvas.getBoundingClientRect();
-    return {
-      x: screenX - rect.left,
-      y: screenY - rect.top
-    };
+    return this.toGame(screenX, screenY);
   }
 
   /**

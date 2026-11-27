@@ -18,11 +18,28 @@ class Renderer {
   }
 
   /**
-   * Resizes the canvas to match the window size
+   * Resizes the canvas to match the window size.
+   * The canvas resolution is kept in the LOGICAL game space (see
+   * GameConstants.LOGICAL_HEIGHT). On small screens the canvas element is
+   * then stretched to fill the window via CSS, so the game logic always
+   * operates with desktop-like coordinates regardless of the real
+   * viewport size.
    */
   resizeCanvas() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    const cssWidth = window.innerWidth;
+    const cssHeight = window.innerHeight;
+
+    // Scale factor: shrink the logical space only if the screen is SHORTER
+    // than the logical height (phone landscape). On desktop it stays 1.
+    const scale = Math.min(1, cssHeight / GameConstants.LOGICAL_HEIGHT);
+
+    // Canvas resolution = logical game space
+    this.canvas.width = Math.round(cssWidth / scale);
+    this.canvas.height = Math.round(cssHeight / scale);
+
+    // Stretch the canvas element over the whole window via CSS
+    this.canvas.style.width = cssWidth + "px";
+    this.canvas.style.height = cssHeight + "px";
   }
 
   /**

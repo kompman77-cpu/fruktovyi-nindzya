@@ -65,6 +65,25 @@ added for Roll-Express (2026). MIT, same terms.
       height: 100vh !important;
       z-index: 0;
     }
+    /* ===== Landscape lock: portrait phones see a rotate hint ===== */
+    #rotateHint {
+      display: none;
+      position: fixed; inset: 0; z-index: 9000;
+      background: #14300f;
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      color: #fff;
+      font-family: 'Montserrat', Arial, sans-serif;
+      font-size: 18px; text-align: center; padding: 24px;
+      -webkit-user-select: none; user-select: none;
+    }
+    #rotateHint .icon { font-size: 46px; animation: rh-spin 1.6s ease-in-out infinite; }
+    @keyframes rh-spin {
+      0%, 25% { transform: rotate(0deg); }
+      60%, 100% { transform: rotate(90deg); }
+    }
+    html.portrait #rotateHint { display: flex; }
+
     /* Exit button for the iOS fallback mode */
     #fsExit {
       display: none;
@@ -86,6 +105,12 @@ added for Roll-Express (2026). MIT, same terms.
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
+  <!-- Rotate hint (portrait on touch devices only) -->
+  <div id="rotateHint">
+    <div class="icon">&#128260;</div>
+    <div>Поверните телефон горизонтально</div>
+  </div>
   <div id="score">Счёт: 0</div>
   <div id="fsExit" title="Выйти из полного экрана">✕</div>
 
@@ -211,9 +236,28 @@ added for Roll-Express (2026). MIT, same terms.
         root.classList.remove('fs-fallback');
       });
 
+      // Landscape-only mode: show the rotate hint while the phone is portrait
+      function updateOrientation() {
+        const isPortrait = window.innerHeight > window.innerWidth;
+        root.classList.toggle('portrait', isPortrait);
+      }
+      window.addEventListener('resize', updateOrientation);
+      window.addEventListener('orientationchange', updateOrientation);
+      updateOrientation();
+
+      // When native fullscreen engages (Android), ask the OS for landscape
+      document.addEventListener('fullscreenchange', function () {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock('landscape').catch(function () {});
+          }
+        }
+      });
+
       // Extra zoom guards (safe: they only block browser gestures, not game input)
       document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
     })();
   </script>
 </body>
 </html>
+
